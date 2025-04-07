@@ -3,70 +3,69 @@ package collector
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ashwinikd/json-log-exporter/config"
 	"github.com/hpcloud/tail"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"os"
+	"json-log-exporter/config"
+	"log"
 	"strconv"
 	"text/template"
 )
 
 type Collector struct {
-	Name string
-	counters []*counter
-	gauges []*gauge
+	Name       string
+	counters   []*counter
+	gauges     []*gauge
 	histograms []*histogram
-	summaries []*summary
+	summaries  []*summary
 
 	cfg *config.LogGroupConfig
 }
 
 type counter struct {
-	key string
-	valueTpl *template.Template
-	metric *prometheus.CounterVec
-	labelNames []string
+	key         string
+	valueTpl    *template.Template
+	metric      *prometheus.CounterVec
+	labelNames  []string
 	labelValues []*template.Template
-	cfg *config.MetricConfig
-	exportTo string
+	cfg         *config.MetricConfig
+	exportTo    string
 }
 
 type gauge struct {
-	key string
-	valueTpl *template.Template
-	metric *prometheus.GaugeVec
-	labelNames []string
+	key         string
+	valueTpl    *template.Template
+	metric      *prometheus.GaugeVec
+	labelNames  []string
 	labelValues []*template.Template
-	cfg *config.MetricConfig
-	exportTo string
+	cfg         *config.MetricConfig
+	exportTo    string
 }
 
 type histogram struct {
-	key string
-	valueTpl *template.Template
-	metric *prometheus.HistogramVec
-	labelNames []string
+	key         string
+	valueTpl    *template.Template
+	metric      *prometheus.HistogramVec
+	labelNames  []string
 	labelValues []*template.Template
-	cfg *config.MetricConfig
-	exportTo string
+	cfg         *config.MetricConfig
+	exportTo    string
 }
 
 type summary struct {
-	key string
-	valueTpl *template.Template
-	metric *prometheus.SummaryVec
-	labelNames []string
+	key         string
+	valueTpl    *template.Template
+	metric      *prometheus.SummaryVec
+	labelNames  []string
 	labelValues []*template.Template
-	cfg *config.MetricConfig
-	exportTo string
+	cfg         *config.MetricConfig
+	exportTo    string
 }
 
 func NewCollector(cfg *config.LogGroupConfig) *Collector {
 	globalLabels, globalValues := cfg.Labels()
 	numCounter := 0
 	numGauge := 0
-	numHistogram :=0
+	numHistogram := 0
 	numSummary := 0
 
 	for _, metric := range cfg.Metrics {
@@ -79,17 +78,17 @@ func NewCollector(cfg *config.LogGroupConfig) *Collector {
 		} else if metric.Type == "summary" {
 			numSummary++
 		} else {
-			log.Infof("Found invalid Metric Type [%s]", metric.Type)
+			log.Printf("Found invalid Metric Type [%s]", metric.Type)
 		}
 	}
 
 	collector := &Collector{
-		Name: cfg.Name,
-		counters: make([]*counter, numCounter),
-		gauges: make([]*gauge, numGauge),
+		Name:       cfg.Name,
+		counters:   make([]*counter, numCounter),
+		gauges:     make([]*gauge, numGauge),
 		histograms: make([]*histogram, numHistogram),
-		summaries: make([]*summary, numSummary),
-		cfg: cfg,
+		summaries:  make([]*summary, numSummary),
+		cfg:        cfg,
 	}
 
 	for _, metric := range cfg.Metrics {
@@ -97,7 +96,7 @@ func NewCollector(cfg *config.LogGroupConfig) *Collector {
 		var labels []string
 		var values []*template.Template
 		for i, ln := range globalLabels {
-			if ! contains(l, ln) {
+			if !contains(l, ln) {
 				t, err := template.New(cfg.Name + ":" + metric.Name + ":+label_" + ln).Parse(globalValues[i])
 				if err == nil {
 					values = append(values, t)
@@ -123,53 +122,50 @@ func NewCollector(cfg *config.LogGroupConfig) *Collector {
 			m := prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: "jsonlog",
 				Subsystem: cfg.Name,
-				Name: metric.Name,
-				Help: metric.Desc,
+				Name:      metric.Name,
+				Help:      metric.Desc,
 			}, labels)
 
 			tpl, err := template.New(cfg.Name + ":" + metric.Name + ":+value").Parse(metric.ValueKey)
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
 
 			collector.counters[numCounter] = &counter{
-				key: metric.ValueKey,
-				valueTpl: tpl,
-				metric: m,
-				labelNames: labels,
+				key:         metric.ValueKey,
+				valueTpl:    tpl,
+				metric:      m,
+				labelNames:  labels,
 				labelValues: values,
-				cfg: metric,
-				exportTo: metric.Export,
+				cfg:         metric,
+				exportTo:    metric.Export,
 			}
 		} else if metric.Type == "gauge" {
 			numGauge--
 			m := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: "jsonlog",
 				Subsystem: cfg.Name,
-				Name: metric.Name,
-				Help: metric.Desc,
+				Name:      metric.Name,
+				Help:      metric.Desc,
 			}, labels)
 
 			if metric.ValueKey == "" {
 				log.Fatalf("No key provided for gauge value. [%s.%s]", cfg.Name, metric.Name)
-				os.Exit(1)
 			}
 
 			tpl, err := template.New(cfg.Name + ":" + metric.Name + ":+value").Parse(metric.ValueKey)
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
 
 			collector.gauges[numGauge] = &gauge{
-				key: metric.ValueKey,
-				valueTpl: tpl,
-				metric: m,
-				labelNames: labels,
+				key:         metric.ValueKey,
+				valueTpl:    tpl,
+				metric:      m,
+				labelNames:  labels,
 				labelValues: values,
-				cfg: metric,
-				exportTo: metric.Export,
+				cfg:         metric,
+				exportTo:    metric.Export,
 			}
 		} else if metric.Type == "histogram" {
 			numHistogram--
@@ -181,30 +177,28 @@ func NewCollector(cfg *config.LogGroupConfig) *Collector {
 			m := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 				Namespace: "jsonlog",
 				Subsystem: cfg.Name,
-				Name: metric.Name,
-				Help: metric.Desc,
-				Buckets: metric.Buckets,
+				Name:      metric.Name,
+				Help:      metric.Desc,
+				Buckets:   metric.Buckets,
 			}, labels)
 
 			if metric.ValueKey == "" {
 				log.Fatalf("No key provided for histogram value. [%s.%s]", cfg.Name, metric.Name)
-				os.Exit(1)
 			}
 
 			tpl, err := template.New(cfg.Name + ":" + metric.Name + ":+value").Parse(metric.ValueKey)
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
 
 			collector.histograms[numHistogram] = &histogram{
-				key: metric.ValueKey,
-				valueTpl: tpl,
-				metric: m,
-				labelNames: labels,
+				key:         metric.ValueKey,
+				valueTpl:    tpl,
+				metric:      m,
+				labelNames:  labels,
 				labelValues: values,
-				cfg: metric,
-				exportTo: metric.Export,
+				cfg:         metric,
+				exportTo:    metric.Export,
 			}
 		} else if metric.Type == "summary" {
 			numSummary--
@@ -218,38 +212,35 @@ func NewCollector(cfg *config.LogGroupConfig) *Collector {
 			}
 
 			m := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-				Namespace: "jsonlog",
-				Subsystem: cfg.Name,
-				Name: metric.Name,
-				Help: metric.Desc,
+				Namespace:  "jsonlog",
+				Subsystem:  cfg.Name,
+				Name:       metric.Name,
+				Help:       metric.Desc,
 				Objectives: metric.Objectives,
-				MaxAge: metric.SummaryMaxAge,
+				MaxAge:     metric.SummaryMaxAge,
 				AgeBuckets: metric.SummaryAgeBuckets,
 			}, labels)
 
 			if metric.ValueKey == "" {
 				log.Fatalf("No key provided for summary value. [%s.%s]", cfg.Name, metric.Name)
-				os.Exit(1)
 			}
 
 			tpl, err := template.New(cfg.Name + ":" + metric.Name + ":+value").Parse(metric.ValueKey)
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
 
 			collector.summaries[numSummary] = &summary{
-				key: metric.ValueKey,
-				valueTpl: tpl,
-				metric: m,
-				labelNames: labels,
+				key:         metric.ValueKey,
+				valueTpl:    tpl,
+				metric:      m,
+				labelNames:  labels,
 				labelValues: values,
-				cfg: metric,
-				exportTo: metric.Export,
+				cfg:         metric,
+				exportTo:    metric.Export,
 			}
 		} else {
 			log.Fatalf("Found invalid metric type '%s'", metric.Type)
-			os.Exit(1)
 		}
 	}
 
@@ -261,15 +252,14 @@ func (this *Collector) Run() {
 
 	for _, f := range this.cfg.SourceFiles {
 		t, err := tail.TailFile(f, tail.Config{
-			Follow: true,
-			ReOpen: true,
-			Poll: true,
+			Follow:    true,
+			ReOpen:    true,
+			Poll:      true,
 			MustExist: true,
 		})
 
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
 
 		go func() {
@@ -279,7 +269,7 @@ func (this *Collector) Run() {
 				err := json.Unmarshal(b, &data)
 
 				if err != nil {
-					log.Warnf("Error in parsing line in file [%s] '%s' | Error => %s", f, line.Text, err)
+					log.Printf("Error in parsing line in file [%s] '%s' | Error => %s", f, line.Text, err)
 					continue
 				}
 
@@ -293,7 +283,7 @@ func (this *Collector) Run() {
 							inc = i
 							m.metric.WithLabelValues(values...).Add(inc)
 						} else {
-							log.Warnf("Value for counter is invalid [%s]. Ignoring line.", vstr)
+							log.Printf("Value for counter is invalid [%s]. Ignoring line.", vstr)
 						}
 					} else {
 						m.metric.WithLabelValues(values...).Add(inc)
@@ -306,7 +296,7 @@ func (this *Collector) Run() {
 					if i, err := strconv.ParseFloat(vstr, 64); err == nil {
 						m.metric.WithLabelValues(values...).Add(i)
 					} else {
-						log.Warnf("Value for gauge is invalid [%s]. Ignoring line.", vstr)
+						log.Printf("Value for gauge is invalid [%s]. Ignoring line.", vstr)
 					}
 				}
 
@@ -316,7 +306,7 @@ func (this *Collector) Run() {
 					if i, err := strconv.ParseFloat(vstr, 64); err == nil {
 						m.metric.WithLabelValues(values...).Observe(i)
 					} else {
-						log.Warnf("Value for histogram is invalid [%s]. Ignoring line.", vstr)
+						log.Printf("Value for histogram is invalid [%s]. Ignoring line.", vstr)
 					}
 				}
 
@@ -326,7 +316,7 @@ func (this *Collector) Run() {
 					if i, err := strconv.ParseFloat(vstr, 64); err == nil {
 						m.metric.WithLabelValues(values...).Observe(i)
 					} else {
-						log.Warnf("Value for summary is invalid [%s]. Ignoring line.", vstr)
+						log.Printf("Value for summary is invalid [%s]. Ignoring line.", vstr)
 					}
 				}
 			}
@@ -359,7 +349,7 @@ func labelValues(f interface{}, templates []*template.Template) (values []string
 
 func executeTpl(tpl *template.Template, data interface{}) string {
 	var out bytes.Buffer
-	err := tpl.Execute(&out, data);
+	err := tpl.Execute(&out, data)
 	if err == nil {
 		return out.String()
 	} else {
