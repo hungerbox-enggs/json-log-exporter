@@ -1,6 +1,8 @@
 module json-log-exporter
 
-go 1.23.4
+go 1.21
+
+toolchain go1.21.0
 
 require (
 	github.com/ashwinikd/json-log-exporter v0.0.0-20190305111013-5c9b5e917e3a

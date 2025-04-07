@@ -1,19 +1,19 @@
 package collector
 
 import (
-	"github.com/ashwinikd/json-log-exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"json-log-exporter/config"
 	"net/http"
 )
 
 var exporters = make(map[string]*Exporter)
 
 type Exporter struct {
-	Name string
+	Name     string
 	Registry prometheus.Registerer
-	Handler http.Handler
-	config *config.ExportConfig
+	Handler  http.Handler
+	config   *config.ExportConfig
 }
 
 func InitializeExports(exports []*config.ExportConfig) {
@@ -21,15 +21,15 @@ func InitializeExports(exports []*config.ExportConfig) {
 		registry := prometheus.NewRegistry()
 		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 		exporter := &Exporter{
-			Name: cfg.Name,
+			Name:     cfg.Name,
 			Registry: registry,
-			Handler: handler,
-			config: cfg,
+			Handler:  handler,
+			config:   cfg,
 		}
 		exporters[cfg.Name] = exporter
 	}
 }
 
-func GetExport(name string) *Exporter{
+func GetExport(name string) *Exporter {
 	return exporters[name]
 }
